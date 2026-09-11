@@ -39,49 +39,68 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
   // Busca as cantigas da festa
   useEffect(() => {
     async function loadPlaylist() {
-      // 1. Pegar os orixás da festa
-      const { data: festaOrixas } = await supabase
-        .from("festa_orixas")
-        .select("orixa_id, ordem_apresentacao, orixas(id, nome, cor_tema)")
-        .eq("festa_id", festaId)
-        .order("ordem_apresentacao", { ascending: true });
+      try {
+        // Verifica conexão primeiro
+        if (!navigator.onLine) throw new Error("Offline");
 
-      if (!festaOrixas || festaOrixas.length === 0) {
-        setLoading(false);
-        return;
-      }
+        // 1. Pegar os orixás da festa
+        const { data: festaOrixas, error: errOrixas } = await supabase
+          .from("festa_orixas")
+          .select("orixa_id, ordem_apresentacao, orixas(id, nome, cor_tema)")
+          .eq("festa_id", festaId)
+          .order("ordem_apresentacao", { ascending: true });
 
-      // 2. Pegar as cantigas dos orixás selecionados
-      const orixaIds = festaOrixas.map(fo => fo.orixa_id);
-      const { data: cantigas } = await supabase
-        .from("cantigas")
-        .select("*")
-        .in("orixa_id", orixaIds)
-        .order("ordem", { ascending: true });
+        if (errOrixas) throw errOrixas;
 
-      // 2.5 Pegar a seleção exata de cantigas dessa festa
-      const { data: festaCantigas } = await supabase
-        .from("festa_cantigas")
-        .select("cantiga_id")
-        .eq("festa_id", festaId);
+        if (!festaOrixas || festaOrixas.length === 0) {
+          setLoading(false);
+          return;
+        }
 
-      // Filtra as cantigas baseando-se nas selecionadas (se existir a tabela/dados)
-      const cantigasFiltradas = festaCantigas && festaCantigas.length > 0
-        ? cantigas?.filter(c => festaCantigas.some(fc => fc.cantiga_id === c.id))
-        : cantigas;
+        // 2. Pegar as cantigas dos orixás selecionados
+        const orixaIds = festaOrixas.map(fo => fo.orixa_id);
+        const { data: cantigas, error: errCantigas } = await supabase
+          .from("cantigas")
+          .select("*")
+          .in("orixa_id", orixaIds)
+          .order("ordem", { ascending: true });
+        
+        if (errCantigas) throw errCantigas;
 
-      if (cantigasFiltradas) {
-        // 3. Montar a playlist ordenada: primeiro por ordem do orixa na festa, depois por ordem da cantiga
-        let finalPlaylist: PlaylistCantiga[] = [];
-        festaOrixas.forEach(fo => {
-          const orixaObj = fo.orixas as unknown as Orixa;
-          const cantigasDesteOrixa = cantigasFiltradas.filter(c => c.orixa_id === fo.orixa_id);
+        // 2.5 Pegar a seleção exata de cantigas dessa festa
+        const { data: festaCantigas, error: errFestaCantigas } = await supabase
+          .from("festa_cantigas")
+          .select("cantiga_id")
+          .eq("festa_id", festaId);
           
-          cantigasDesteOrixa.forEach(c => {
-            finalPlaylist.push({ ...c, orixa: orixaObj });
+        if (errFestaCantigas) throw errFestaCantigas;
+
+        // Filtra as cantigas baseando-se nas selecionadas (se existir a tabela/dados)
+        const cantigasFiltradas = festaCantigas && festaCantigas.length > 0
+          ? cantigas?.filter(c => festaCantigas.some(fc => fc.cantiga_id === c.id))
+          : cantigas;
+
+        if (cantigasFiltradas) {
+          // 3. Montar a playlist ordenada: primeiro por ordem do orixa na festa, depois por ordem da cantiga
+          let finalPlaylist: PlaylistCantiga[] = [];
+          festaOrixas.forEach(fo => {
+            const orixaObj = fo.orixas as unknown as Orixa;
+            const cantigasDesteOrixa = cantigasFiltradas.filter(c => c.orixa_id === fo.orixa_id);
+            
+            cantigasDesteOrixa.forEach(c => {
+              finalPlaylist.push({ ...c, orixa: orixaObj });
+            });
           });
-        });
-        setPlaylist(finalPlaylist);
+          setPlaylist(finalPlaylist);
+          // Salva para uso offline
+          localStorage.setItem(`festa_offline_${festaId}`, JSON.stringify(finalPlaylist));
+        }
+      } catch (err) {
+        console.error("Network falhou, carregando cache offline", err);
+        const cached = localStorage.getItem(`festa_offline_${festaId}`);
+        if (cached) {
+          setPlaylist(JSON.parse(cached));
+        }
       }
       setLoading(false);
     }

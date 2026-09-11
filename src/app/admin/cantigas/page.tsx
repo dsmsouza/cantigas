@@ -27,6 +27,8 @@ export default function CantigasPage() {
   const [letra, setLetra] = useState("");
   const [ordem, setOrdem] = useState("");
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   useEffect(() => {
     fetchOrixas();
     fetchCantigas();
@@ -34,18 +36,18 @@ export default function CantigasPage() {
 
   // Auto-preencher a ordem quando o Orixá mudar ou novas cantigas forem carregadas
   useEffect(() => {
-    if (orixaId) {
+    if (orixaId && !editingId) {
       const cantigasOrixa = cantigas.filter(c => c.orixa_id === orixaId);
       const maxOrdem = cantigasOrixa.reduce((max, c) => Math.max(max, c.ordem), 0);
       setOrdem((maxOrdem + 1).toString());
     }
-  }, [orixaId, cantigas]);
+  }, [orixaId, cantigas, editingId]);
 
   async function fetchOrixas() {
     const { data } = await supabase.from("orixas").select("id, nome").order("ordem_padrao", { ascending: true });
     if (data) {
       setOrixas(data);
-      if (data.length > 0) setOrixaId(data[0].id);
+      if (data.length > 0 && !orixaId) setOrixaId(data[0].id);
     }
   }
 
@@ -59,22 +61,53 @@ export default function CantigasPage() {
     if (error) console.error("Erro ao buscar cantigas:", error);
   }
 
+  function startEdit(cantiga: Cantiga) {
+    setEditingId(cantiga.id);
+    setOrixaId(cantiga.orixa_id);
+    setTitulo(cantiga.titulo || "");
+    setLetra(cantiga.letra);
+    setOrdem(cantiga.ordem.toString());
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setTitulo("");
+    setLetra("");
+    // A ordem será recalculada pelo useEffect
+  }
+
   async function addCantiga(e: React.FormEvent) {
     e.preventDefault();
     if (!orixaId || !letra || !ordem) return;
 
-    const { error } = await supabase
-      .from("cantigas")
-      .insert([{ orixa_id: orixaId, titulo, letra, ordem: parseInt(ordem) }]);
+    if (editingId) {
+      const { error } = await supabase
+        .from("cantigas")
+        .update({ orixa_id: orixaId, titulo, letra, ordem: parseInt(ordem) })
+        .eq("id", editingId);
 
-    if (error) {
-      console.error("Erro ao adicionar cantiga:", error);
-      alert("Erro ao adicionar cantiga.");
+      if (error) {
+        console.error("Erro ao editar cantiga:", error);
+        alert("Erro ao editar cantiga.");
+      } else {
+        cancelEdit();
+        fetchCantigas();
+      }
     } else {
-      setTitulo("");
-      setLetra("");
-      setOrdem("");
-      fetchCantigas();
+      const { error } = await supabase
+        .from("cantigas")
+        .insert([{ orixa_id: orixaId, titulo, letra, ordem: parseInt(ordem) }]);
+
+      if (error) {
+        console.error("Erro ao adicionar cantiga:", error);
+        alert("Erro ao adicionar cantiga.");
+      } else {
+        setTitulo("");
+        setLetra("");
+        // A ordem será atualizada pelo useEffect
+        fetchCantigas();
+      }
     }
   }
 
@@ -89,7 +122,9 @@ export default function CantigasPage() {
       <h2 className="text-2xl font-bold mb-6">Gerenciar Cantigas</h2>
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8">
-        <h3 className="text-lg font-semibold mb-4">Adicionar Nova Cantiga</h3>
+        <h3 className="text-lg font-semibold mb-4">
+          {editingId ? "Editar Cantiga" : "Adicionar Nova Cantiga"}
+        </h3>
         
         {orixas.length === 0 ? (
           <div className="text-yellow-600 dark:text-yellow-400 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded">
@@ -145,12 +180,23 @@ export default function CantigasPage() {
               />
             </div>
 
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex items-center gap-2"
-            >
-              <Plus size={20} /> Salvar Cantiga
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex items-center gap-2"
+              >
+                {editingId ? "Atualizar Cantiga" : <><Plus size={20} /> Salvar Cantiga</>}
+              </button>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="bg-gray-400 hover:bg-gray-500 text-white py-2 px-4 rounded"
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
           </form>
         )}
       </div>
@@ -183,7 +229,14 @@ export default function CantigasPage() {
                       {cantiga.letra.split('\n')[0]}...
                     </div>
                   </td>
-                  <td className="p-4 text-right">
+                  <td className="p-4 text-right flex justify-end gap-2">
+                    <button
+                      onClick={() => startEdit(cantiga)}
+                      className="text-blue-500 hover:text-blue-700 p-2"
+                      title="Editar"
+                    >
+                      ✏️
+                    </button>
                     <button
                       onClick={() => deleteCantiga(cantiga.id)}
                       className="text-red-500 hover:text-red-700 p-2"

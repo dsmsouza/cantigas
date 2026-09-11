@@ -14,11 +14,30 @@ type Festa = {
 
 export default function Home() {
   const [festas, setFestas] = useState<Festa[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchFestas() {
-      const { data } = await supabase.from("festas").select("*").order("data", { ascending: false });
-      if (data) setFestas(data);
+      try {
+        if (!navigator.onLine) throw new Error("Offline");
+        
+        const { data, error } = await supabase
+          .from("festas")
+          .select("*")
+          .order("data", { ascending: false });
+          
+        if (error) throw error;
+        
+        if (data) {
+          setFestas(data);
+          localStorage.setItem('home_festas_offline', JSON.stringify(data));
+        }
+      } catch (err) {
+        console.error("Modo offline ativo", err);
+        const cached = localStorage.getItem('home_festas_offline');
+        if (cached) setFestas(JSON.parse(cached));
+      }
+      setLoading(false);
     }
     fetchFestas();
   }, []);

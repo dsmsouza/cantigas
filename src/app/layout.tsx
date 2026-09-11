@@ -15,8 +15,10 @@ const geistMono = Geist_Mono({
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
-  title: "Ijọba Cantigas",
-  description: "Webapp para cantigas de candomblé",
+  title: "Ijoba Cantigas",
+  description: "Gerenciador de Cantigas e Teleprompter",
+  manifest: "/manifest.json",
+  themeColor: "#3b82f6",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

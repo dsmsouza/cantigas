@@ -35,6 +35,8 @@ export default function FestasPage() {
   const [selectedOrixas, setSelectedOrixas] = useState<string[]>([]);
   const [selectedCantigas, setSelectedCantigas] = useState<string[]>([]);
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   useEffect(() => {
     fetchOrixas();
     fetchCantigas();
@@ -60,14 +62,12 @@ export default function FestasPage() {
     setSelectedOrixas(prev => {
       const isSelected = prev.includes(id);
       if (isSelected) {
-        // Se desmarcou o Orixá, remove todas as cantigas dele da seleção
         setSelectedCantigas(sc => sc.filter(cid => {
           const c = cantigas.find(x => x.id === cid);
           return c?.orixa_id !== id;
         }));
         return prev.filter(o => o !== id);
       } else {
-        // Se marcou o Orixá, seleciona todas as cantigas dele por padrão
         const cants = cantigas.filter(c => c.orixa_id === id).map(c => c.id);
         setSelectedCantigas(sc => [...new Set([...sc, ...cants])]);
         return [...prev, id];
@@ -81,6 +81,28 @@ export default function FestasPage() {
     );
   };
 
+  async function startEdit(festa: Festa) {
+    setEditingId(festa.id);
+    setNome(festa.nome);
+    setData(festa.data || "");
+    
+    const { data: relOrixas } = await supabase.from("festa_orixas").select("orixa_id").eq("festa_id", festa.id);
+    if (relOrixas) setSelectedOrixas(relOrixas.map(r => r.orixa_id));
+
+    const { data: relCantigas } = await supabase.from("festa_cantigas").select("cantiga_id").eq("festa_id", festa.id);
+    if (relCantigas) setSelectedCantigas(relCantigas.map(r => r.cantiga_id));
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setNome("");
+    setData("");
+    setSelectedOrixas([]);
+    setSelectedCantigas([]);
+  }
+
   async function addFesta(e: React.FormEvent) {
     e.preventDefault();
     if (!nome || selectedOrixas.length === 0) {
@@ -88,43 +110,44 @@ export default function FestasPage() {
       return;
     }
 
-    // 1. Criar a festa
-    const { data: festaData, error: festaError } = await supabase
-      .from("festas")
-      .insert([{ nome, data: data || null }])
-      .select()
-      .single();
+    let festaId = editingId;
 
-    if (festaError || !festaData) {
-      console.error("Erro ao adicionar festa:", festaError);
-      return;
+    if (editingId) {
+      const { error } = await supabase.from("festas").update({ nome, data: data || null }).eq("id", editingId);
+      if (error) { console.error("Erro ao atualizar festa:", error); return; }
+      
+      await supabase.from("festa_orixas").delete().eq("festa_id", editingId);
+      await supabase.from("festa_cantigas").delete().eq("festa_id", editingId);
+    } else {
+      const { data: festaData, error: festaError } = await supabase
+        .from("festas")
+        .insert([{ nome, data: data || null }])
+        .select()
+        .single();
+      if (festaError || !festaData) { console.error("Erro ao adicionar festa:", festaError); return; }
+      festaId = festaData.id;
     }
 
-    // 2. Adicionar os orixás
     const orixasOrdenados = orixas
       .filter(o => selectedOrixas.includes(o.id))
       .sort((a, b) => a.ordem_padrao - b.ordem_padrao);
 
     const festaOrixasData = orixasOrdenados.map((o, index) => ({
-      festa_id: festaData.id,
+      festa_id: festaId,
       orixa_id: o.id,
       ordem_apresentacao: index + 1
     }));
     await supabase.from("festa_orixas").insert(festaOrixasData);
 
-    // 3. Adicionar as cantigas específicas escolhidas
     if (selectedCantigas.length > 0) {
       const festaCantigasData = selectedCantigas.map(cid => ({
-        festa_id: festaData.id,
+        festa_id: festaId,
         cantiga_id: cid
       }));
       await supabase.from("festa_cantigas").insert(festaCantigasData);
     }
 
-    setNome("");
-    setData("");
-    setSelectedOrixas([]);
-    setSelectedCantigas([]);
+    cancelEdit();
     fetchFestas();
   }
 
@@ -139,7 +162,9 @@ export default function FestasPage() {
       <h2 className="text-2xl font-bold mb-6">Gerenciar Festas (Setlists)</h2>
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8">
-        <h3 className="text-lg font-semibold mb-4">Criar Nova Festa</h3>
+        <h3 className="text-lg font-semibold mb-4">
+          {editingId ? "Editar Festa (Setlist)" : "Criar Nova Festa"}
+        </h3>
         
         <form onSubmit={addFesta} className="space-y-4">
           <div className="flex gap-4">
@@ -213,12 +238,23 @@ export default function FestasPage() {
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 mt-4 rounded flex items-center gap-2"
-          >
-            <Plus size={20} /> Salvar Festa e Setlist
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 mt-4 rounded flex items-center gap-2"
+            >
+              {editingId ? "Atualizar Festa" : <><Plus size={20} /> Salvar Festa e Setlist</>}
+            </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="bg-gray-400 hover:bg-gray-500 text-white py-2 px-6 mt-4 rounded"
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
@@ -246,6 +282,13 @@ export default function FestasPage() {
                     {festa.data ? new Date(festa.data).toLocaleDateString('pt-BR') : '-'}
                   </td>
                   <td className="p-4 text-right flex justify-end gap-2">
+                    <button
+                      onClick={() => startEdit(festa)}
+                      className="text-blue-500 hover:text-blue-700 p-2"
+                      title="Editar"
+                    >
+                      ✏️
+                    </button>
                     <button
                       onClick={() => deleteFesta(festa.id)}
                       className="text-red-500 hover:text-red-700 p-2"
