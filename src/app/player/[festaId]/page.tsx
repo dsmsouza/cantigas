@@ -2,21 +2,32 @@
 
 import { useEffect, useState, useRef, use } from "react";
 import { supabase } from "@/lib/supabase";
-import { ChevronLeft, ChevronRight, FastForward, ArrowLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight, FastForward, ArrowLeft, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-// Tipagens
 type Orixa = { id: string; nome: string; cor_tema: string };
 type Cantiga = { id: string; titulo: string; letra: string; ordem: number; orixa_id: string };
-type PlaylistCantiga = Cantiga & { orixa: Orixa };
+
+type OrixaData = {
+  orixa: Orixa;
+  cantigas: Cantiga[];
+};
 
 export default function PlayerPage({ params }: { params: Promise<{ festaId: string }> }) {
   const { festaId } = use(params);
 
-  const [playlist, setPlaylist] = useState<PlaylistCantiga[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [orixasData, setOrixasData] = useState<OrixaData[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // States de navegação
+  const [currentOrixaIndex, setCurrentOrixaIndex] = useState(0);
+  const [view, setView] = useState<'TOQUES' | 'CANTIGAS'>('TOQUES');
+  const [selectedToque, setSelectedToque] = useState<string | null>(null);
+  const [currentCantigaIndex, setCurrentCantigaIndex] = useState(0);
+  
+  // Toques concluídos: { [orixa_id]: ['Vassi', 'Ijesa'] }
+  const [completedToques, setCompletedToques] = useState<Record<string, string[]>>({});
 
   // Wake Lock API (Impede a tela de apagar)
   useEffect(() => {
@@ -40,10 +51,8 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
   useEffect(() => {
     async function loadPlaylist() {
       try {
-        // Verifica conexão primeiro
         if (!navigator.onLine) throw new Error("Offline");
 
-        // 1. Pegar os orixás da festa
         const { data: festaOrixas, error: errOrixas } = await supabase
           .from("festa_orixas")
           .select("orixa_id, ordem_apresentacao, orixas(id, nome, cor_tema)")
@@ -57,7 +66,6 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
           return;
         }
 
-        // 2. Pegar as cantigas dos orixás selecionados
         const orixaIds = festaOrixas.map(fo => fo.orixa_id);
         const { data: cantigas, error: errCantigas } = await supabase
           .from("cantigas")
@@ -67,7 +75,6 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
         
         if (errCantigas) throw errCantigas;
 
-        // 2.5 Pegar a seleção exata de cantigas dessa festa
         const { data: festaCantigas, error: errFestaCantigas } = await supabase
           .from("festa_cantigas")
           .select("cantiga_id")
@@ -75,31 +82,27 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
           
         if (errFestaCantigas) throw errFestaCantigas;
 
-        // Filtra as cantigas baseando-se nas selecionadas (se existir a tabela/dados)
         const cantigasFiltradas = festaCantigas && festaCantigas.length > 0
           ? cantigas?.filter(c => festaCantigas.some(fc => fc.cantiga_id === c.id))
           : cantigas;
 
         if (cantigasFiltradas) {
-          // 3. Montar a playlist ordenada: primeiro por ordem do orixa na festa, depois por ordem da cantiga
-          let finalPlaylist: PlaylistCantiga[] = [];
+          let orixasArr: OrixaData[] = [];
           festaOrixas.forEach(fo => {
             const orixaObj = fo.orixas as unknown as Orixa;
             const cantigasDesteOrixa = cantigasFiltradas.filter(c => c.orixa_id === fo.orixa_id);
-            
-            cantigasDesteOrixa.forEach(c => {
-              finalPlaylist.push({ ...c, orixa: orixaObj });
-            });
+            if (cantigasDesteOrixa.length > 0) {
+              orixasArr.push({ orixa: orixaObj, cantigas: cantigasDesteOrixa });
+            }
           });
-          setPlaylist(finalPlaylist);
-          // Salva para uso offline
-          localStorage.setItem(`festa_offline_${festaId}`, JSON.stringify(finalPlaylist));
+          setOrixasData(orixasArr);
+          localStorage.setItem(`festa_offline_v2_${festaId}`, JSON.stringify(orixasArr));
         }
       } catch (err) {
         console.error("Network falhou, carregando cache offline", err);
-        const cached = localStorage.getItem(`festa_offline_${festaId}`);
+        const cached = localStorage.getItem(`festa_offline_v2_${festaId}`);
         if (cached) {
-          setPlaylist(JSON.parse(cached));
+          setOrixasData(JSON.parse(cached));
         }
       }
       setLoading(false);
@@ -107,41 +110,82 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
     loadPlaylist();
   }, [festaId]);
 
-  // Controles de Navegação
+  // Deriva o orixá atual e seus toques disponíveis
+  const activeOrixaData = orixasData[currentOrixaIndex];
+  const toquesDisponiveis = activeOrixaData 
+    ? Array.from(new Set(activeOrixaData.cantigas.map(c => c.titulo || 'Sem Toque')))
+    : [];
+
+  const activeCantigas = activeOrixaData && selectedToque
+    ? activeOrixaData.cantigas.filter(c => (c.titulo || 'Sem Toque') === selectedToque)
+    : [];
+
+  // Ações de Navegação
+  const finishToque = () => {
+    if (!activeOrixaData || !selectedToque) return;
+    
+    setCompletedToques(prev => {
+      const orixaId = activeOrixaData.orixa.id;
+      const alreadyCompleted = prev[orixaId] || [];
+      if (!alreadyCompleted.includes(selectedToque)) {
+        return { ...prev, [orixaId]: [...alreadyCompleted, selectedToque] };
+      }
+      return prev;
+    });
+
+    setView('TOQUES');
+    setSelectedToque(null);
+    setCurrentCantigaIndex(0);
+  };
+
   const nextCantiga = () => {
-    setCurrentIndex(prev => {
-      const next = prev < playlist.length - 1 ? prev + 1 : prev;
-      return next;
-    });
-  };
-
-  const prevCantiga = () => {
-    setCurrentIndex(prev => {
-      const before = prev > 0 ? prev - 1 : prev;
-      return before;
-    });
-  };
-
-  const skipOrixa = () => {
-    const currentOrixaId = playlist[currentIndex].orixa_id;
-    const nextOrixaIndex = playlist.findIndex((c, i) => i > currentIndex && c.orixa_id !== currentOrixaId);
-    if (nextOrixaIndex !== -1) {
-      setCurrentIndex(nextOrixaIndex);
-    } else {
-      setCurrentIndex(playlist.length - 1);
+    if (view === 'CANTIGAS') {
+      if (currentCantigaIndex < activeCantigas.length - 1) {
+        setCurrentCantigaIndex(i => i + 1);
+      } else {
+        finishToque();
+      }
     }
   };
 
-  // Media Session API (Para controle na tela de bloqueio)
+  const prevCantiga = () => {
+    if (view === 'CANTIGAS' && currentCantigaIndex > 0) {
+      setCurrentCantigaIndex(i => i - 1);
+    }
+  };
+
+  const skipToque = () => {
+    if (view === 'CANTIGAS') {
+      finishToque();
+    }
+  };
+
+  const skipOrixa = () => {
+    if (currentOrixaIndex < orixasData.length - 1) {
+      setCurrentOrixaIndex(i => i + 1);
+      setView('TOQUES');
+      setSelectedToque(null);
+      setCurrentCantigaIndex(0);
+    } else {
+      // Fim da festa
+      setCurrentOrixaIndex(orixasData.length);
+    }
+  };
+
+  const startToque = (toque: string) => {
+    setSelectedToque(toque);
+    setCurrentCantigaIndex(0);
+    setView('CANTIGAS');
+  };
+
+  // Media Session API
   useEffect(() => {
-    if (playlist.length > 0 && 'mediaSession' in navigator) {
-      const current = playlist[currentIndex];
-      
+    if (view === 'CANTIGAS' && activeCantigas.length > 0 && 'mediaSession' in navigator) {
+      const current = activeCantigas[currentCantigaIndex];
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: current.titulo || `Cantiga ${currentIndex + 1}`,
-        artist: current.orixa.nome,
+        title: `${current.titulo || 'Toque'} - ${currentCantigaIndex + 1}`,
+        artist: activeOrixaData.orixa.nome,
         album: "Ijọba Cantigas",
-        // Ícone padrão para aparecer no player do celular
         artwork: [
           { src: 'https://cdn-icons-png.flaticon.com/512/3844/3844724.png', sizes: '512x512', type: 'image/png' }
         ]
@@ -150,12 +194,11 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
       navigator.mediaSession.setActionHandler('nexttrack', () => nextCantiga());
       navigator.mediaSession.setActionHandler('previoustrack', () => prevCantiga());
     }
-  }, [currentIndex, playlist]);
+  }, [view, currentCantigaIndex, activeCantigas, activeOrixaData]);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Iniciar a sessão de mídia ativando o áudio silencioso
   const startSession = () => {
     setIsPlaying(true);
     if (audioRef.current) {
@@ -163,33 +206,38 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
     }
   };
 
-  // Suporte a Swipe
+  // Swipe Support
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.targetTouches[0].clientX;
-  };
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.targetTouches[0].clientX;
-  };
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.targetTouches[0].clientX; };
+  const handleTouchMove = (e: React.TouchEvent) => { touchEndX.current = e.targetTouches[0].clientX; };
   const handleTouchEnd = () => {
-    if (touchStartX.current - touchEndX.current > 50) nextCantiga(); // Swipe Left (Próxima)
-    if (touchStartX.current - touchEndX.current < -50) prevCantiga(); // Swipe Right (Anterior)
+    if (view === 'CANTIGAS') {
+      if (touchStartX.current - touchEndX.current > 50) nextCantiga(); // Swipe Left
+      if (touchStartX.current - touchEndX.current < -50) prevCantiga(); // Swipe Right
+    }
   };
 
   if (loading) return <div className="flex h-screen items-center justify-center dark:bg-gray-900 dark:text-white">Carregando Xiré...</div>;
-  if (playlist.length === 0) return (
+  if (orixasData.length === 0) return (
     <div className="flex flex-col h-screen items-center justify-center p-6 text-center dark:bg-gray-900 dark:text-white">
       <p className="mb-4">Nenhuma cantiga encontrada para esta festa.</p>
       <Link href="/" className="bg-blue-600 text-white px-4 py-2 rounded">Voltar</Link>
     </div>
   );
 
-  const current = playlist[currentIndex];
-  const progress = ((currentIndex + 1) / playlist.length) * 100;
+  // Tela de Fim de Festa
+  if (currentOrixaIndex >= orixasData.length) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center p-6 text-center bg-white dark:bg-gray-900 dark:text-white">
+        <h2 className="text-3xl font-bold mb-4">Fim da Festa!</h2>
+        <p className="text-gray-500 mb-8">Todas as cantigas foram cantadas.</p>
+        <Link href="/" className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold">Voltar ao Início</Link>
+      </div>
+    );
+  }
 
-  // Base64 de um áudio em silêncio de 1 segundo (necessário para o celular manter o widget ativo na tela de bloqueio)
   const silentAudioSrc = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIwBRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjYwAAAAAAAAAAAAAAAAAAAAAAAD/zhAAAYcAAIMAAAAgQAAADBEP//OEABGSAAgwAAACBAAAAMERAA==";
 
   return (
@@ -219,67 +267,102 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
       {/* Header Fixo */}
       <div 
         className="flex justify-between items-center p-4 border-b dark:border-gray-800"
-        style={{ borderBottomColor: current.orixa.cor_tema, borderBottomWidth: '4px' }}
+        style={{ borderBottomColor: activeOrixaData.orixa.cor_tema, borderBottomWidth: '4px' }}
       >
         <Link href="/" className="p-2 -ml-2 text-gray-600 dark:text-gray-300">
           <ArrowLeft size={24} />
         </Link>
         <div className="text-center flex-1">
-          <h1 className="text-xl font-bold uppercase tracking-widest" style={{ color: current.orixa.cor_tema }}>
-            {current.orixa.nome}
+          <h1 className="text-xl font-bold uppercase tracking-widest" style={{ color: activeOrixaData.orixa.cor_tema }}>
+            {activeOrixaData.orixa.nome}
           </h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Cantiga {currentIndex + 1} de {playlist.length}
-          </p>
+          {view === 'CANTIGAS' && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Cantiga {currentCantigaIndex + 1} de {activeCantigas.length}
+            </p>
+          )}
         </div>
         <ThemeToggle />
       </div>
 
-      {/* Barra de Progresso */}
-      <div className="w-full bg-gray-200 dark:bg-gray-800 h-1">
-        <div className="bg-blue-600 h-1 transition-all duration-300" style={{ width: `${progress}%` }}></div>
-      </div>
+      {view === 'TOQUES' ? (
+        // FASE A: Seleção de Toques
+        <div className="flex-1 flex flex-col items-center p-6 overflow-y-auto w-full">
+          <h2 className="text-2xl font-bold mb-8 mt-4">Qual será o toque?</h2>
+          
+          <div className="flex flex-col gap-4 w-full max-w-md">
+            {toquesDisponiveis.map(toque => {
+              const isCompleted = completedToques[activeOrixaData.orixa.id]?.includes(toque);
+              return (
+                <button
+                  key={toque}
+                  onClick={() => startToque(toque)}
+                  className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                    isCompleted 
+                      ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
+                      : 'border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                  }`}
+                >
+                  <span className="text-xl font-bold">{toque}</span>
+                  {isCompleted && <CheckCircle className="text-green-500" size={24} />}
+                </button>
+              );
+            })}
+          </div>
 
-      {/* Letra da Cantiga (Área principal) */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto">
-        {current.titulo && (
-          <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-500 dark:text-gray-400">
-            {current.titulo}
-          </h2>
-        )}
-        <div className="text-3xl md:text-5xl lg:text-6xl font-black text-center leading-relaxed whitespace-pre-wrap">
-          {current.letra}
+          <button 
+            onClick={skipOrixa}
+            className="mt-12 flex items-center justify-center gap-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4"
+          >
+            Pular Orixá <FastForward size={20} />
+          </button>
         </div>
-      </div>
+      ) : (
+        // FASE B: Cantando Toque Específico
+        <>
+          <div className="w-full bg-gray-200 dark:bg-gray-800 h-1">
+            <div className="bg-blue-600 h-1 transition-all duration-300" style={{ width: `${((currentCantigaIndex + 1) / activeCantigas.length) * 100}%` }}></div>
+          </div>
 
-      {/* Controles de Rodapé */}
-      <div className="p-4 grid grid-cols-3 gap-2 border-t dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
-        <button 
-          onClick={prevCantiga}
-          disabled={currentIndex === 0}
-          className="flex flex-col items-center justify-center p-4 rounded-xl bg-white dark:bg-gray-800 shadow disabled:opacity-50 active:scale-95 transition-transform"
-        >
-          <ChevronLeft size={32} />
-          <span className="text-xs mt-1 font-semibold uppercase">Anterior</span>
-        </button>
+          <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto">
+            <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-500 dark:text-gray-400">
+              {selectedToque}
+            </h2>
+            <div className="text-3xl md:text-5xl lg:text-6xl font-black text-center leading-relaxed whitespace-pre-wrap">
+              {activeCantigas[currentCantigaIndex]?.letra}
+            </div>
+          </div>
 
-        <button 
-          onClick={skipOrixa}
-          className="flex flex-col items-center justify-center p-4 rounded-xl bg-white dark:bg-gray-800 shadow active:scale-95 transition-transform text-gray-500"
-        >
-          <FastForward size={24} />
-          <span className="text-xs mt-2 font-semibold uppercase">Pular Orixá</span>
-        </button>
+          {/* Player Controls */}
+          <div className="h-32 bg-gray-50 dark:bg-gray-800 border-t dark:border-gray-700 flex flex-col items-center justify-center px-4 pb-4">
+            <div className="flex items-center justify-center gap-4 md:gap-8 w-full max-w-md mb-2">
+              <button 
+                onClick={prevCantiga}
+                disabled={currentCantigaIndex === 0}
+                className="p-4 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={40} />
+              </button>
+              
+              <button 
+                onClick={nextCantiga}
+                className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex-1 md:flex-none flex justify-center"
+              >
+                <ChevronRight size={48} />
+              </button>
 
-        <button 
-          onClick={nextCantiga}
-          disabled={currentIndex === playlist.length - 1}
-          className="flex flex-col items-center justify-center p-4 rounded-xl bg-blue-600 text-white shadow disabled:opacity-50 active:scale-95 transition-transform"
-        >
-          <ChevronRight size={32} />
-          <span className="text-xs mt-1 font-semibold uppercase">Próxima</span>
-        </button>
-      </div>
+              <button 
+                onClick={skipToque}
+                className="p-4 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 flex flex-col items-center justify-center"
+                title="Pular Toque"
+              >
+                <FastForward size={28} />
+              </button>
+            </div>
+            <span className="text-xs text-gray-400">Próxima Cantiga (Avanço) / Fim do Toque (Fast Forward)</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

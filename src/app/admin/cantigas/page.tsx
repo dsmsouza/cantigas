@@ -18,7 +18,20 @@ type Cantiga = {
   orixas?: { nome: string }; // relacionamento
 };
 
-export default function CantigasPage() {
+const TOQUES_PADRAO = [
+  "Vassi Lento",
+  "Vassi",
+  "Guerra",
+  "Ijesa",
+  "Aguere",
+  "Sassain",
+  "Ibi",
+  "Sato",
+  "Bravun",
+  "Ramunha"
+];
+
+export default function CantigasAdmin() {
   const [orixas, setOrixas] = useState<Orixa[]>([]);
   const [cantigas, setCantigas] = useState<Cantiga[]>([]);
   
@@ -147,14 +160,22 @@ export default function CantigasPage() {
                 </select>
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">Título (Opcional)</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium mb-1">Toque</label>
+                <select
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
                   className="w-full border dark:border-gray-600 rounded p-2 bg-transparent"
-                  placeholder="Ex: Cantiga de Saída"
-                />
+                  required
+                >
+                  <option value="" className="dark:bg-gray-800">Selecione o Toque...</option>
+                  {TOQUES_PADRAO.map(t => (
+                    <option key={t} value={t} className="dark:bg-gray-800">{t}</option>
+                  ))}
+                  {/* Option fallback para toques antigos que não estão na lista */}
+                  {titulo && !TOQUES_PADRAO.includes(titulo) && (
+                    <option value={titulo} className="dark:bg-gray-800">{titulo}</option>
+                  )}
+                </select>
               </div>
               <div className="w-full md:w-24">
                 <label className="block text-sm font-medium mb-1">Ordem</label>
@@ -208,7 +229,7 @@ export default function CantigasPage() {
               <tr className="bg-gray-100 dark:bg-gray-700 border-b dark:border-gray-600">
                 <th className="p-4">Orixá</th>
                 <th className="p-4">Ordem</th>
-                <th className="p-4">Título / Letra (Resumo)</th>
+                <th className="p-4">Toque / Letra (Resumo)</th>
                 <th className="p-4 text-right">Ações</th>
               </tr>
             </thead>
