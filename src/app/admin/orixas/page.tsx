@@ -119,8 +119,16 @@ export default function OrixasPage() {
                 <th className="p-4">Cor</th>
                 <th className="p-4 text-right">Ações</th>
               </tr>
-            ) : (
-              orixas.map((orixa) => (
+            </thead>
+            <tbody>
+              {orixas.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-4 text-center text-gray-500">
+                    Nenhum orixá cadastrado.
+                  </td>
+                </tr>
+              ) : (
+                orixas.map((orixa) => (
                 <tr key={orixa.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
                   <td className="p-4">{orixa.ordem_padrao}</td>
                   <td className="p-4 font-medium">{orixa.nome}</td>
@@ -145,6 +153,7 @@ export default function OrixasPage() {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 }
