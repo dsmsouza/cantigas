@@ -32,6 +32,15 @@ export default function CantigasPage() {
     fetchCantigas();
   }, []);
 
+  // Auto-preencher a ordem quando o Orixá mudar ou novas cantigas forem carregadas
+  useEffect(() => {
+    if (orixaId) {
+      const cantigasOrixa = cantigas.filter(c => c.orixa_id === orixaId);
+      const maxOrdem = cantigasOrixa.reduce((max, c) => Math.max(max, c.ordem), 0);
+      setOrdem((maxOrdem + 1).toString());
+    }
+  }, [orixaId, cantigas]);
+
   async function fetchOrixas() {
     const { data } = await supabase.from("orixas").select("id, nome").order("ordem_padrao", { ascending: true });
     if (data) {

@@ -59,12 +59,23 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
         .in("orixa_id", orixaIds)
         .order("ordem", { ascending: true });
 
-      if (cantigas) {
+      // 2.5 Pegar a seleção exata de cantigas dessa festa
+      const { data: festaCantigas } = await supabase
+        .from("festa_cantigas")
+        .select("cantiga_id")
+        .eq("festa_id", festaId);
+
+      // Filtra as cantigas baseando-se nas selecionadas (se existir a tabela/dados)
+      const cantigasFiltradas = festaCantigas && festaCantigas.length > 0
+        ? cantigas?.filter(c => festaCantigas.some(fc => fc.cantiga_id === c.id))
+        : cantigas;
+
+      if (cantigasFiltradas) {
         // 3. Montar a playlist ordenada: primeiro por ordem do orixa na festa, depois por ordem da cantiga
         let finalPlaylist: PlaylistCantiga[] = [];
         festaOrixas.forEach(fo => {
           const orixaObj = fo.orixas as unknown as Orixa;
-          const cantigasDesteOrixa = cantigas.filter(c => c.orixa_id === fo.orixa_id);
+          const cantigasDesteOrixa = cantigasFiltradas.filter(c => c.orixa_id === fo.orixa_id);
           
           cantigasDesteOrixa.forEach(c => {
             finalPlaylist.push({ ...c, orixa: orixaObj });

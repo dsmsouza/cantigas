@@ -10,6 +10,14 @@ type Orixa = {
   ordem_padrao: number;
 };
 
+type Cantiga = {
+  id: string;
+  titulo: string;
+  letra: string;
+  ordem: number;
+  orixa_id: string;
+};
+
 type Festa = {
   id: string;
   nome: string;
@@ -18,14 +26,18 @@ type Festa = {
 
 export default function FestasPage() {
   const [orixas, setOrixas] = useState<Orixa[]>([]);
+  const [cantigas, setCantigas] = useState<Cantiga[]>([]);
   const [festas, setFestas] = useState<Festa[]>([]);
   
   const [nome, setNome] = useState("");
   const [data, setData] = useState("");
+  
   const [selectedOrixas, setSelectedOrixas] = useState<string[]>([]);
+  const [selectedCantigas, setSelectedCantigas] = useState<string[]>([]);
 
   useEffect(() => {
     fetchOrixas();
+    fetchCantigas();
     fetchFestas();
   }, []);
 
@@ -34,14 +46,38 @@ export default function FestasPage() {
     if (data) setOrixas(data);
   }
 
+  async function fetchCantigas() {
+    const { data } = await supabase.from("cantigas").select("*").order("ordem", { ascending: true });
+    if (data) setCantigas(data);
+  }
+
   async function fetchFestas() {
     const { data } = await supabase.from("festas").select("*").order("data", { ascending: false });
     if (data) setFestas(data);
   }
 
   const toggleOrixa = (id: string) => {
-    setSelectedOrixas(prev => 
-      prev.includes(id) ? prev.filter(o => o !== id) : [...prev, id]
+    setSelectedOrixas(prev => {
+      const isSelected = prev.includes(id);
+      if (isSelected) {
+        // Se desmarcou o Orixá, remove todas as cantigas dele da seleção
+        setSelectedCantigas(sc => sc.filter(cid => {
+          const c = cantigas.find(x => x.id === cid);
+          return c?.orixa_id !== id;
+        }));
+        return prev.filter(o => o !== id);
+      } else {
+        // Se marcou o Orixá, seleciona todas as cantigas dele por padrão
+        const cants = cantigas.filter(c => c.orixa_id === id).map(c => c.id);
+        setSelectedCantigas(sc => [...new Set([...sc, ...cants])]);
+        return [...prev, id];
+      }
+    });
+  };
+
+  const toggleCantiga = (id: string) => {
+    setSelectedCantigas(prev => 
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
     );
   };
 
@@ -64,8 +100,7 @@ export default function FestasPage() {
       return;
     }
 
-    // 2. Adicionar os orixás selecionados na ordem padrão deles
-    // Ordenar os orixás selecionados baseando-se na ordem_padrao
+    // 2. Adicionar os orixás
     const orixasOrdenados = orixas
       .filter(o => selectedOrixas.includes(o.id))
       .sort((a, b) => a.ordem_padrao - b.ordem_padrao);
@@ -75,23 +110,28 @@ export default function FestasPage() {
       orixa_id: o.id,
       ordem_apresentacao: index + 1
     }));
+    await supabase.from("festa_orixas").insert(festaOrixasData);
 
-    const { error: relError } = await supabase.from("festa_orixas").insert(festaOrixasData);
-
-    if (relError) {
-      console.error("Erro ao vincular orixás:", relError);
-    } else {
-      setNome("");
-      setData("");
-      setSelectedOrixas([]);
-      fetchFestas();
+    // 3. Adicionar as cantigas específicas escolhidas
+    if (selectedCantigas.length > 0) {
+      const festaCantigasData = selectedCantigas.map(cid => ({
+        festa_id: festaData.id,
+        cantiga_id: cid
+      }));
+      await supabase.from("festa_cantigas").insert(festaCantigasData);
     }
+
+    setNome("");
+    setData("");
+    setSelectedOrixas([]);
+    setSelectedCantigas([]);
+    fetchFestas();
   }
 
   async function deleteFesta(id: string) {
-    if (!confirm("Tem certeza que deseja excluir esta festa? (Isso também apagará a setlist dela)")) return;
-    const { error } = await supabase.from("festas").delete().eq("id", id);
-    if (!error) fetchFestas();
+    if (!confirm("Tem certeza que deseja excluir esta festa?")) return;
+    await supabase.from("festas").delete().eq("id", id);
+    fetchFestas();
   }
 
   return (
@@ -126,34 +166,58 @@ export default function FestasPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Selecione os Orixás (Xiré desta festa)</label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border dark:border-gray-700">
+            <label className="block text-sm font-medium mb-2">Monte o Setlist da Festa</label>
+            <p className="text-sm text-gray-500 mb-4">Selecione os Orixás. Depois, você pode desmarcar as cantigas específicas que não serão tocadas hoje.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {orixas.length === 0 ? (
                 <div className="col-span-full text-gray-500">Nenhum orixá cadastrado.</div>
               ) : (
                 orixas.map(o => (
-                  <label key={o.id} className="flex items-center space-x-2 cursor-pointer p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
-                    <input
-                      type="checkbox"
-                      checked={selectedOrixas.includes(o.id)}
-                      onChange={() => toggleOrixa(o.id)}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                    />
-                    <span>{o.ordem_padrao}. {o.nome}</span>
-                  </label>
+                  <div key={o.id} className="bg-gray-50 dark:bg-gray-900/50 border dark:border-gray-700 p-4 rounded-lg">
+                    <label className="flex items-center space-x-2 cursor-pointer font-bold text-lg mb-2 text-blue-700 dark:text-blue-400">
+                      <input
+                        type="checkbox"
+                        checked={selectedOrixas.includes(o.id)}
+                        onChange={() => toggleOrixa(o.id)}
+                        className="w-5 h-5 rounded focus:ring-blue-500"
+                      />
+                      <span>{o.ordem_padrao}. {o.nome}</span>
+                    </label>
+                    
+                    {/* Lista de cantigas (só aparece se o orixá estiver selecionado) */}
+                    {selectedOrixas.includes(o.id) && (
+                      <div className="ml-7 flex flex-col gap-2 mt-3">
+                        {cantigas.filter(c => c.orixa_id === o.id).length === 0 ? (
+                          <span className="text-xs text-gray-400">Sem cantigas.</span>
+                        ) : (
+                          cantigas.filter(c => c.orixa_id === o.id).map(c => (
+                            <label key={c.id} className="flex items-start space-x-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-white">
+                              <input
+                                type="checkbox"
+                                checked={selectedCantigas.includes(c.id)}
+                                onChange={() => toggleCantiga(c.id)}
+                                className="w-4 h-4 mt-0.5 rounded focus:ring-blue-500"
+                              />
+                              <span className="leading-tight">
+                                {c.ordem}. {c.titulo || c.letra.split('\n')[0].substring(0, 30) + '...'}
+                              </span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ))
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              A ordem das cantigas na festa seguirá a "Ordem Padrão" configurada no cadastro de Orixás.
-            </p>
           </div>
 
           <button
             type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex items-center gap-2"
+            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 mt-4 rounded flex items-center gap-2"
           >
-            <Plus size={20} /> Salvar Festa
+            <Plus size={20} /> Salvar Festa e Setlist
           </button>
         </form>
       </div>
