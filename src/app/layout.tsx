@@ -14,11 +14,20 @@ const geistMono = Geist_Mono({
 
 import { ThemeProvider } from "@/components/ThemeProvider";
 
+import type { Viewport } from "next";
+
 export const metadata: Metadata = {
   title: "Ijoba Cantigas",
   description: "Gerenciador de Cantigas e Teleprompter",
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
   themeColor: "#3b82f6",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
