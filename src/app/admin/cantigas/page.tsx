@@ -132,7 +132,7 @@ export default function CantigasPage() {
           </div>
         ) : (
           <form onSubmit={addCantiga} className="space-y-4">
-            <div className="flex gap-4">
+            <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">Orixá</label>
                 <select
@@ -156,7 +156,7 @@ export default function CantigasPage() {
                   placeholder="Ex: Cantiga de Saída"
                 />
               </div>
-              <div className="w-24">
+              <div className="w-full md:w-24">
                 <label className="block text-sm font-medium mb-1">Ordem</label>
                 <input
                   type="number"
@@ -202,54 +202,56 @@ export default function CantigasPage() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-100 dark:bg-gray-700 border-b dark:border-gray-600">
-              <th className="p-4">Orixá</th>
-              <th className="p-4">Ordem</th>
-              <th className="p-4">Título / Letra (Resumo)</th>
-              <th className="p-4 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cantigas.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="p-4 text-center text-gray-500">
-                  Nenhuma cantiga cadastrada.
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[600px]">
+            <thead>
+              <tr className="bg-gray-100 dark:bg-gray-700 border-b dark:border-gray-600">
+                <th className="p-4">Orixá</th>
+                <th className="p-4">Ordem</th>
+                <th className="p-4">Título / Letra (Resumo)</th>
+                <th className="p-4 text-right">Ações</th>
               </tr>
-            ) : (
-              cantigas.map((cantiga) => (
-                <tr key={cantiga.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
-                  <td className="p-4 font-medium">{cantiga.orixas?.nome}</td>
-                  <td className="p-4">{cantiga.ordem}</td>
-                  <td className="p-4">
-                    <div className="font-semibold">{cantiga.titulo || "Sem título"}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-md">
-                      {cantiga.letra.split('\n')[0]}...
-                    </div>
-                  </td>
-                  <td className="p-4 text-right flex justify-end gap-2">
-                    <button
-                      onClick={() => startEdit(cantiga)}
-                      className="text-blue-500 hover:text-blue-700 p-2"
-                      title="Editar"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => deleteCantiga(cantiga.id)}
-                      className="text-red-500 hover:text-red-700 p-2"
-                      title="Excluir"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+            </thead>
+            <tbody>
+              {cantigas.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-4 text-center text-gray-500">
+                    Nenhuma cantiga cadastrada.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                cantigas.map((cantiga) => (
+                  <tr key={cantiga.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
+                    <td className="p-4 font-medium">{cantiga.orixas?.nome}</td>
+                    <td className="p-4">{cantiga.ordem}</td>
+                    <td className="p-4">
+                      <div className="font-semibold">{cantiga.titulo || "Sem título"}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-md">
+                        {cantiga.letra.split('\n')[0]}...
+                      </div>
+                    </td>
+                    <td className="p-4 text-right flex justify-end gap-2">
+                      <button
+                        onClick={() => startEdit(cantiga)}
+                        className="text-blue-500 hover:text-blue-700 p-2"
+                        title="Editar"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => deleteCantiga(cantiga.id)}
+                        className="text-red-500 hover:text-red-700 p-2"
+                        title="Excluir"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

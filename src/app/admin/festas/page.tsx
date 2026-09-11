@@ -167,7 +167,7 @@ export default function FestasPage() {
         </h3>
         
         <form onSubmit={addFesta} className="space-y-4">
-          <div className="flex gap-4">
+          <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium mb-1">Nome do Evento</label>
               <input
@@ -179,7 +179,7 @@ export default function FestasPage() {
                 required
               />
             </div>
-            <div className="w-48">
+            <div className="w-full md:w-48">
               <label className="block text-sm font-medium mb-1">Data (Opcional)</label>
               <input
                 type="date"
@@ -259,49 +259,51 @@ export default function FestasPage() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-100 dark:bg-gray-700 border-b dark:border-gray-600">
-              <th className="p-4">Nome da Festa</th>
-              <th className="p-4">Data</th>
-              <th className="p-4 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {festas.length === 0 ? (
-              <tr>
-                <td colSpan={3} className="p-4 text-center text-gray-500">
-                  Nenhuma festa cadastrada.
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[600px]">
+            <thead>
+              <tr className="bg-gray-100 dark:bg-gray-700 border-b dark:border-gray-600">
+                <th className="p-4">Nome da Festa</th>
+                <th className="p-4">Data</th>
+                <th className="p-4 text-right">Ações</th>
               </tr>
-            ) : (
-              festas.map((festa) => (
-                <tr key={festa.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
-                  <td className="p-4 font-medium">{festa.nome}</td>
-                  <td className="p-4">
-                    {festa.data ? new Date(festa.data).toLocaleDateString('pt-BR') : '-'}
-                  </td>
-                  <td className="p-4 text-right flex justify-end gap-2">
-                    <button
-                      onClick={() => startEdit(festa)}
-                      className="text-blue-500 hover:text-blue-700 p-2"
-                      title="Editar"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => deleteFesta(festa.id)}
-                      className="text-red-500 hover:text-red-700 p-2"
-                      title="Excluir"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+            </thead>
+            <tbody>
+              {festas.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="p-4 text-center text-gray-500">
+                    Nenhuma festa cadastrada.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                festas.map((festa) => (
+                  <tr key={festa.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
+                    <td className="p-4 font-medium">{festa.nome}</td>
+                    <td className="p-4">
+                      {festa.data ? new Date(festa.data).toLocaleDateString('pt-BR') : '-'}
+                    </td>
+                    <td className="p-4 text-right flex justify-end gap-2">
+                      <button
+                        onClick={() => startEdit(festa)}
+                        className="text-blue-500 hover:text-blue-700 p-2"
+                        title="Editar"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => deleteFesta(festa.id)}
+                        className="text-red-500 hover:text-red-700 p-2"
+                        title="Excluir"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

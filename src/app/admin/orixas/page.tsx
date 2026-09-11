@@ -65,63 +65,59 @@ export default function OrixasPage() {
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8">
         <h3 className="text-lg font-semibold mb-4">Adicionar Novo Orixá</h3>
-        <form onSubmit={addOrixa} className="flex gap-4 items-end">
-          <div className="flex-1">
-            <label className="block text-sm font-medium mb-1">Nome do Orixá</label>
-            <input
-              type="text"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              className="w-full border dark:border-gray-600 rounded p-2 bg-transparent"
-              placeholder="Ex: Exu"
-              required
-            />
+        <form onSubmit={addOrixa} className="space-y-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-1">Nome do Orixá</label>
+              <input
+                type="text"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                className="w-full border dark:border-gray-600 rounded p-2 bg-transparent"
+                placeholder="Ex: Exu"
+                required
+              />
+            </div>
+            <div className="w-full md:w-24">
+              <label className="block text-sm font-medium mb-1">Ordem Padrão</label>
+              <input
+                type="number"
+                value={ordemPadrao}
+                onChange={(e) => setOrdemPadrao(e.target.value)}
+                className="w-full border dark:border-gray-600 rounded p-2 bg-transparent"
+                placeholder="1"
+                required
+              />
+            </div>
+            <div className="w-full md:w-32">
+              <label className="block text-sm font-medium mb-1">Cor Tema</label>
+              <input
+                type="color"
+                value={corTema}
+                onChange={(e) => setCorTema(e.target.value)}
+                className="w-full h-10 border dark:border-gray-600 rounded bg-transparent cursor-pointer"
+              />
+            </div>
           </div>
-          <div className="w-24">
-            <label className="block text-sm font-medium mb-1">Ordem</label>
-            <input
-              type="number"
-              value={ordemPadrao}
-              onChange={(e) => setOrdemPadrao(e.target.value)}
-              className="w-full border dark:border-gray-600 rounded p-2 bg-transparent"
-              placeholder="1"
-              required
-            />
-          </div>
-          <div className="w-24">
-            <label className="block text-sm font-medium mb-1">Cor</label>
-            <input
-              type="color"
-              value={corTema}
-              onChange={(e) => setCorTema(e.target.value)}
-              className="w-full border dark:border-gray-600 rounded p-1 h-[42px] bg-transparent cursor-pointer"
-            />
-          </div>
+
           <button
             type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded flex items-center justify-center h-[42px] w-12"
+            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex items-center gap-2"
           >
-            <Plus size={20} />
+            <Plus size={20} /> Salvar Orixá
           </button>
         </form>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-100 dark:bg-gray-700 border-b dark:border-gray-600">
-              <th className="p-4">Ordem</th>
-              <th className="p-4">Nome</th>
-              <th className="p-4">Cor Tema</th>
-              <th className="p-4 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orixas.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="p-4 text-center text-gray-500">
-                  Nenhum orixá cadastrado.
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[500px]">
+            <thead>
+              <tr className="bg-gray-100 dark:bg-gray-700 border-b dark:border-gray-600">
+                <th className="p-4">Ordem</th>
+                <th className="p-4">Nome</th>
+                <th className="p-4">Cor</th>
+                <th className="p-4 text-right">Ações</th>
               </tr>
             ) : (
               orixas.map((orixa) => (
