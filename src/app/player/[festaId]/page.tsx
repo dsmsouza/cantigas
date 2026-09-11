@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, use } from "react";
 import { supabase } from "@/lib/supabase";
-import { ChevronLeft, ChevronRight, FastForward, ArrowLeft, CheckCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, FastForward, Rewind, ArrowLeft, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -160,6 +160,15 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
     }
   };
 
+  const prevOrixa = () => {
+    if (currentOrixaIndex > 0) {
+      setCurrentOrixaIndex(i => i - 1);
+      setView('TOQUES');
+      setSelectedToque(null);
+      setCurrentCantigaIndex(0);
+    }
+  };
+
   const skipOrixa = () => {
     if (currentOrixaIndex < orixasData.length - 1) {
       setCurrentOrixaIndex(i => i + 1);
@@ -219,9 +228,9 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
     }
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center dark:bg-gray-900 dark:text-white">Carregando Xiré...</div>;
+  if (loading) return <div className="flex h-screen items-center justify-center dark:bg-black dark:text-white">Carregando Xiré...</div>;
   if (orixasData.length === 0) return (
-    <div className="flex flex-col h-screen items-center justify-center p-6 text-center dark:bg-gray-900 dark:text-white">
+    <div className="flex flex-col h-screen items-center justify-center p-6 text-center dark:bg-black dark:text-white">
       <p className="mb-4">Nenhuma cantiga encontrada para esta festa.</p>
       <Link href="/" className="bg-blue-600 text-white px-4 py-2 rounded">Voltar</Link>
     </div>
@@ -230,7 +239,7 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
   // Tela de Fim de Festa
   if (currentOrixaIndex >= orixasData.length) {
     return (
-      <div className="flex flex-col h-screen items-center justify-center p-6 text-center bg-white dark:bg-gray-900 dark:text-white">
+      <div className="flex flex-col h-screen items-center justify-center p-6 text-center bg-white dark:bg-black dark:text-white">
         <h2 className="text-3xl font-bold mb-4">Fim da Festa!</h2>
         <p className="text-gray-500 mb-8">Todas as cantigas foram cantadas.</p>
         <Link href="/" className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold">Voltar ao Início</Link>
@@ -242,7 +251,7 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
 
   return (
     <div 
-      className="flex flex-col h-screen bg-white dark:bg-gray-900 text-black dark:text-white overflow-hidden select-none relative"
+      className="flex flex-col h-screen bg-white dark:bg-black text-black dark:text-white overflow-hidden select-none relative"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -273,7 +282,7 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
           <ArrowLeft size={24} />
         </Link>
         <div className="text-center flex-1">
-          <h1 className="text-xl font-bold uppercase tracking-widest" style={{ color: activeOrixaData.orixa.cor_tema }}>
+          <h1 className="text-xl font-bold uppercase tracking-widest dark:!text-yellow-400" style={{ color: activeOrixaData.orixa.cor_tema }}>
             {activeOrixaData.orixa.nome}
           </h1>
           {view === 'CANTIGAS' && (
@@ -288,7 +297,7 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
       {view === 'TOQUES' ? (
         // FASE A: Seleção de Toques
         <div className="flex-1 flex flex-col items-center p-6 overflow-y-auto w-full">
-          <h2 className="text-2xl font-bold mb-8 mt-4">Qual será o toque?</h2>
+          <h2 className="text-2xl font-bold mb-8 mt-4 dark:text-yellow-400">Qual será o toque?</h2>
           
           <div className="flex flex-col gap-4 w-full max-w-md">
             {toquesDisponiveis.map(toque => {
@@ -310,12 +319,22 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
             })}
           </div>
 
-          <button 
-            onClick={skipOrixa}
-            className="mt-12 flex items-center justify-center gap-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4"
-          >
-            Pular Orixá <FastForward size={20} />
-          </button>
+          <div className="mt-12 flex items-center justify-center gap-8 w-full">
+            <button 
+              onClick={prevOrixa}
+              disabled={currentOrixaIndex === 0}
+              className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Rewind size={24} /> <span className="text-sm font-medium">Voltar Orixá</span>
+            </button>
+
+            <button 
+              onClick={skipOrixa}
+              className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4"
+            >
+              <FastForward size={24} /> <span className="text-sm font-medium">Pular Orixá</span>
+            </button>
+          </div>
         </div>
       ) : (
         // FASE B: Cantando Toque Específico
@@ -325,7 +344,7 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
           </div>
 
           <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto">
-            <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-500 dark:text-gray-400">
+            <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-500 dark:text-yellow-400">
               {selectedToque}
             </h2>
             <div className="text-3xl md:text-5xl lg:text-6xl font-black text-center leading-relaxed whitespace-pre-wrap">
