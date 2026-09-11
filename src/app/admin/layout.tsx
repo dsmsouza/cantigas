@@ -18,7 +18,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/" className="flex items-center gap-2 p-2 mt-0 md:mt-8 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded whitespace-nowrap">Ir para o Player</Link>
         </nav>
       </aside>
-      <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
+      <main className="flex-1 p-4 md:p-8 overflow-x-hidden min-w-0 w-full">
         <div className="hidden md:flex justify-end mb-4"><ThemeToggle /></div>
         {children}
       </main>
