@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { Play, Settings } from "lucide-react";
+import { Play, Settings, Eye } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Festa = {
   id: string;
@@ -15,6 +16,7 @@ type Festa = {
 export default function Home() {
   const [festas, setFestas] = useState<Festa[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isAdmin } = useAuth();
 
   useEffect(() => {
     async function fetchFestas() {
@@ -55,14 +57,18 @@ export default function Home() {
       </div>
 
       <div className="w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Selecione uma Festa para iniciar:</h2>
+        <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">
+          {isAdmin ? "Selecione uma Festa para iniciar:" : "Festas disponíveis para acompanhar:"}
+        </h2>
         
         {festas.length === 0 ? (
           <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow">
             <p className="text-gray-500 dark:text-gray-400 mb-4">Nenhuma festa cadastrada ainda.</p>
-            <Link href="/admin/festas" className="text-blue-600 hover:underline">
-              Vá para o painel para criar uma
-            </Link>
+            {isAdmin && (
+              <Link href="/admin/festas" className="text-blue-600 hover:underline">
+                Vá para o painel para criar uma
+              </Link>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
@@ -79,7 +85,7 @@ export default function Home() {
                   </span>
                 </div>
                 <div className="bg-blue-100 dark:bg-blue-900/50 p-3 rounded-full text-blue-600 dark:text-blue-400">
-                  <Play fill="currentColor" size={24} />
+                  {isAdmin ? <Play fill="currentColor" size={24} /> : <Eye size={24} />}
                 </div>
               </Link>
             ))}
