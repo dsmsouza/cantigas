@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { ChevronLeft, ChevronRight, FastForward, Rewind, ArrowLeft, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Orixa = { id: string; nome: string; cor_tema: string };
 type Cantiga = { id: string; titulo: string; letra: string; ordem: number; orixa_id: string };
@@ -61,6 +62,42 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
       if (wakeLock) wakeLock.release();
     };
   }, []);
+
+  const { isAdmin } = useAuth();
+  const channelRef = useRef<any>(null);
+
+  // Realtime Sync - Setup Channel
+  useEffect(() => {
+    const channel = supabase.channel(`festa-${festaId}`);
+    channelRef.current = channel;
+
+    if (!isAdmin) {
+      channel.on('broadcast', { event: 'sync_state' }, (payload) => {
+        const state = payload.payload;
+        if (state.currentOrixaIndex !== undefined) setCurrentOrixaIndex(state.currentOrixaIndex);
+        if (state.view !== undefined) setView(state.view);
+        if (state.selectedToque !== undefined) setSelectedToque(state.selectedToque);
+        if (state.currentCantigaIndex !== undefined) setCurrentCantigaIndex(state.currentCantigaIndex);
+      });
+    }
+
+    channel.subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAdmin, festaId]);
+
+  // Realtime Sync - Broadcast (Somente Admin)
+  useEffect(() => {
+    if (isAdmin && channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'sync_state',
+        payload: { currentOrixaIndex, view, selectedToque, currentCantigaIndex }
+      });
+    }
+  }, [isAdmin, currentOrixaIndex, view, selectedToque, currentCantigaIndex]);
 
   // Busca as cantigas da festa
   useEffect(() => {
@@ -320,8 +357,11 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
               return (
                 <button
                   key={toque}
-                  onClick={() => startToque(toque)}
-                  className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                  onClick={() => isAdmin && startToque(toque)}
+                  disabled={!isAdmin}
+                  className={`flex items-center justify-between p-4 rounded-xl transition-all ${
+                    isAdmin ? 'border-2 cursor-pointer' : 'border-2 cursor-default opacity-80'
+                  } ${
                     isCompleted 
                       ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
                       : 'border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30'
@@ -334,22 +374,28 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
             })}
           </div>
 
-          <div className="mt-12 flex items-center justify-center gap-8 w-full">
-            <button 
-              onClick={prevOrixa}
-              disabled={currentOrixaIndex === 0}
-              className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <Rewind size={24} /> <span className="text-sm font-medium">Voltar Orixá</span>
-            </button>
+          {isAdmin ? (
+            <div className="mt-12 flex items-center justify-center gap-8 w-full">
+              <button 
+                onClick={prevOrixa}
+                disabled={currentOrixaIndex === 0}
+                className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Rewind size={24} /> <span className="text-sm font-medium">Voltar Orixá</span>
+              </button>
 
-            <button 
-              onClick={skipOrixa}
-              className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4"
-            >
-              <FastForward size={24} /> <span className="text-sm font-medium">Pular Orixá</span>
-            </button>
-          </div>
+              <button 
+                onClick={skipOrixa}
+                className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4"
+              >
+                <FastForward size={24} /> <span className="text-sm font-medium">Pular Orixá</span>
+              </button>
+            </div>
+          ) : (
+            <div className="mt-12 text-center text-gray-500 dark:text-gray-400 animate-pulse">
+              Aguardando o Ogã selecionar o toque...
+            </div>
+          )}
         </div>
       ) : (
         // FASE B: Cantando Toque Específico
@@ -381,32 +427,38 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
               </div>
 
               {/* Controles de Navegação */}
-              <div className="flex items-center gap-4">
-                <button 
-                  onClick={prevCantiga}
-                  disabled={currentCantigaIndex === 0}
-                  className="p-4 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft size={40} />
-                </button>
-                
-                <button 
-                  onClick={nextCantiga}
-                  className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex justify-center"
-                >
-                  <ChevronRight size={48} />
-                </button>
+              {isAdmin ? (
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={prevCantiga}
+                    disabled={currentCantigaIndex === 0}
+                    className="p-4 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft size={40} />
+                  </button>
+                  
+                  <button 
+                    onClick={nextCantiga}
+                    className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex justify-center"
+                  >
+                    <ChevronRight size={48} />
+                  </button>
 
-                <button 
-                  onClick={skipToque}
-                  className="p-4 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                  title="Pular Toque"
-                >
-                  <FastForward size={28} />
-                </button>
-              </div>
+                  <button 
+                    onClick={skipToque}
+                    className="p-4 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
+                    title="Pular Toque"
+                  >
+                    <FastForward size={28} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex-1 text-center text-sm text-gray-500 dark:text-gray-400 animate-pulse px-4">
+                  Modo Ouvinte ativado. A tela acompanhará o Ogã automaticamente.
+                </div>
+              )}
             </div>
-            <span className="text-xs text-gray-400 mt-2">Próxima Cantiga (Avanço) / Fim do Toque (Fast Forward)</span>
+            {isAdmin && <span className="text-xs text-gray-400 mt-2">Próxima Cantiga (Avanço) / Fim do Toque (Fast Forward)</span>}
           </div>
         </>
       )}
