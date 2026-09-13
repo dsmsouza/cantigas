@@ -316,12 +316,21 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
           <p className="text-gray-300 mb-8 max-w-sm">
             O aplicativo tocará um áudio em silêncio contínuo para que você possa avançar as cantigas pelos <b>botões de fone de ouvido</b> ou pela <b>tela de bloqueio</b>.
           </p>
-          <button 
-            onClick={startSession}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-4 px-12 rounded-full shadow-lg"
-          >
-            Iniciar Xiré
-          </button>
+          {isAdmin ? (
+            <button 
+              onClick={startSession}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-4 px-12 rounded-full shadow-lg"
+            >
+              Iniciar Xiré
+            </button>
+          ) : (
+            <div className="flex flex-col items-center gap-4 text-gray-400">
+              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-lg font-medium animate-pulse text-center text-gray-300">
+                Aguardando o Ogã iniciar o Xiré...
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -348,53 +357,55 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
 
       {view === 'TOQUES' ? (
         // FASE A: Seleção de Toques
-        <div className="flex-1 flex flex-col items-center p-6 overflow-y-auto w-full">
-          <h2 className="text-2xl font-bold mb-8 mt-4 dark:text-yellow-400">Qual será o toque?</h2>
-          
-          <div className="flex flex-col gap-4 w-full max-w-md">
-            {toquesDisponiveis.map(toque => {
-              const isCompleted = completedToques[activeOrixaData.orixa.id]?.includes(toque);
-              return (
-                <button
-                  key={toque}
-                  onClick={() => isAdmin && startToque(toque)}
-                  disabled={!isAdmin}
-                  className={`flex items-center justify-between p-4 rounded-xl transition-all ${
-                    isAdmin ? 'border-2 cursor-pointer' : 'border-2 cursor-default opacity-80'
-                  } ${
-                    isCompleted 
-                      ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
-                      : 'border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30'
-                  }`}
-                >
-                  <span className="text-xl font-bold">{toque}</span>
-                  {isCompleted && <CheckCircle className="text-green-500" size={24} />}
-                </button>
-              );
-            })}
-          </div>
-
-          {isAdmin ? (
-            <div className="mt-12 flex items-center justify-center gap-8 w-full">
-              <button 
-                onClick={prevOrixa}
-                disabled={currentOrixaIndex === 0}
-                className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <Rewind size={24} /> <span className="text-sm font-medium">Voltar Orixá</span>
-              </button>
-
-              <button 
-                onClick={skipOrixa}
-                className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4"
-              >
-                <FastForward size={24} /> <span className="text-sm font-medium">Pular Orixá</span>
-              </button>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 w-full h-full">
+          {!isAdmin ? (
+            <div className="flex flex-col items-center gap-6">
+              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-xl font-medium animate-pulse text-center text-gray-500 dark:text-gray-400">
+                Aguardando o Ogã puxar o próximo ponto...
+              </p>
             </div>
           ) : (
-            <div className="mt-12 text-center text-gray-500 dark:text-gray-400 animate-pulse">
-              Aguardando o Ogã selecionar o toque...
-            </div>
+            <>
+              <h2 className="text-2xl font-bold mb-8 mt-4 dark:text-yellow-400">Qual será o toque?</h2>
+              
+              <div className="flex flex-col gap-4 w-full max-w-md">
+                {toquesDisponiveis.map(toque => {
+                  const isCompleted = completedToques[activeOrixaData.orixa.id]?.includes(toque);
+                  return (
+                    <button
+                      key={toque}
+                      onClick={() => startToque(toque)}
+                      className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                        isCompleted 
+                          ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
+                          : 'border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                      }`}
+                    >
+                      <span className="text-xl font-bold">{toque}</span>
+                      {isCompleted && <CheckCircle className="text-green-500" size={24} />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-12 flex items-center justify-center gap-8 w-full">
+                <button 
+                  onClick={prevOrixa}
+                  disabled={currentOrixaIndex === 0}
+                  className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Rewind size={24} /> <span className="text-sm font-medium">Voltar Orixá</span>
+                </button>
+
+                <button 
+                  onClick={skipOrixa}
+                  className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 p-4"
+                >
+                  <FastForward size={24} /> <span className="text-sm font-medium">Pular Orixá</span>
+                </button>
+              </div>
+            </>
           )}
         </div>
       ) : (
