@@ -72,6 +72,7 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
     channelRef.current = channel;
 
     if (!isAdmin) {
+      // Visitante recebe o estado
       channel.on('broadcast', { event: 'sync_state' }, (payload) => {
         const state = payload.payload;
         if (state.currentOrixaIndex !== undefined) setCurrentOrixaIndex(state.currentOrixaIndex);
@@ -79,16 +80,30 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
         if (state.selectedToque !== undefined) setSelectedToque(state.selectedToque);
         if (state.currentCantigaIndex !== undefined) setCurrentCantigaIndex(state.currentCantigaIndex);
       });
+      // Visitante pede o estado atual ao entrar
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          channel.send({ type: 'broadcast', event: 'request_sync' });
+        }
+      });
+    } else {
+      // Admin escuta pedidos de sync de novos visitantes
+      channel.on('broadcast', { event: 'request_sync' }, () => {
+        channel.send({
+          type: 'broadcast',
+          event: 'sync_state',
+          payload: { currentOrixaIndex, view, selectedToque, currentCantigaIndex }
+        });
+      });
+      channel.subscribe();
     }
-
-    channel.subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isAdmin, festaId]);
+  }, [isAdmin, festaId, currentOrixaIndex, view, selectedToque, currentCantigaIndex]);
 
-  // Realtime Sync - Broadcast (Somente Admin)
+  // Realtime Sync - Broadcast (Somente Admin - quando muda algo localmente)
   useEffect(() => {
     if (isAdmin && channelRef.current) {
       channelRef.current.send({
@@ -310,27 +325,18 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
     >
       <audio ref={audioRef} src={silentAudioSrc} loop playsInline />
 
-      {!isPlaying && (
+      {!isPlaying && isAdmin && (
         <div className="absolute inset-0 z-50 bg-black/80 flex flex-col items-center justify-center p-6 text-center">
           <h2 className="text-3xl font-bold text-white mb-6">Pronto para começar?</h2>
           <p className="text-gray-300 mb-8 max-w-sm">
             O aplicativo tocará um áudio em silêncio contínuo para que você possa avançar as cantigas pelos <b>botões de fone de ouvido</b> ou pela <b>tela de bloqueio</b>.
           </p>
-          {isAdmin ? (
-            <button 
-              onClick={startSession}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-4 px-12 rounded-full shadow-lg"
-            >
-              Iniciar Xiré
-            </button>
-          ) : (
-            <div className="flex flex-col items-center gap-4 text-gray-400">
-              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-lg font-medium animate-pulse text-center text-gray-300">
-                Aguardando o Ogã iniciar o Xiré...
-              </p>
-            </div>
-          )}
+          <button 
+            onClick={startSession}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-4 px-12 rounded-full shadow-lg"
+          >
+            Iniciar Xiré
+          </button>
         </div>
       )}
 
