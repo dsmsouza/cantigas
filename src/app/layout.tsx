@@ -43,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
+          themes={["light", "dark", "red"]}
         >
           {children}
         </ThemeProvider>

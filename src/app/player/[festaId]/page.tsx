@@ -29,6 +29,21 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
   // Toques concluídos: { [orixa_id]: ['Vassi', 'Ijesa'] }
   const [completedToques, setCompletedToques] = useState<Record<string, string[]>>({});
 
+  const [fontSize, setFontSize] = useState(48);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('ijoba_fontSize');
+    if (saved) setFontSize(Number(saved));
+  }, []);
+
+  const changeFontSize = (delta: number) => {
+    setFontSize(prev => {
+      const next = Math.max(24, Math.min(prev + delta, 120));
+      localStorage.setItem('ijoba_fontSize', next.toString());
+      return next;
+    });
+  };
+
   // Wake Lock API (Impede a tela de apagar)
   useEffect(() => {
     let wakeLock: any = null;
@@ -347,38 +362,51 @@ export default function PlayerPage({ params }: { params: Promise<{ festaId: stri
             <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-500 dark:text-yellow-400">
               {selectedToque}
             </h2>
-            <div className="text-3xl md:text-5xl lg:text-6xl font-black text-center leading-relaxed whitespace-pre-wrap">
+            <div 
+              className="font-black text-center leading-relaxed whitespace-pre-wrap"
+              style={{ fontSize: `${fontSize}px`, lineHeight: 1.4 }}
+            >
               {activeCantigas[currentCantigaIndex]?.letra}
             </div>
           </div>
 
           {/* Player Controls */}
-          <div className="h-32 bg-gray-50 dark:bg-gray-800 border-t dark:border-gray-700 flex flex-col items-center justify-center px-4 pb-4">
-            <div className="flex items-center justify-center gap-4 md:gap-8 w-full max-w-md mb-2">
-              <button 
-                onClick={prevCantiga}
-                disabled={currentCantigaIndex === 0}
-                className="p-4 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft size={40} />
-              </button>
+          <div className="h-auto bg-gray-50 dark:bg-gray-800 border-t dark:border-gray-700 flex flex-col items-center justify-center p-4">
+            <div className="flex items-center justify-between w-full max-w-lg mb-2">
               
-              <button 
-                onClick={nextCantiga}
-                className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex-1 md:flex-none flex justify-center"
-              >
-                <ChevronRight size={48} />
-              </button>
+              {/* Controles de Fonte */}
+              <div className="flex flex-col gap-2">
+                <button onClick={() => changeFontSize(8)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 font-bold text-lg">A+</button>
+                <button onClick={() => changeFontSize(-8)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 font-bold text-sm">A-</button>
+              </div>
 
-              <button 
-                onClick={skipToque}
-                className="p-4 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 flex flex-col items-center justify-center"
-                title="Pular Toque"
-              >
-                <FastForward size={28} />
-              </button>
+              {/* Controles de Navegação */}
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={prevCantiga}
+                  disabled={currentCantigaIndex === 0}
+                  className="p-4 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={40} />
+                </button>
+                
+                <button 
+                  onClick={nextCantiga}
+                  className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex justify-center"
+                >
+                  <ChevronRight size={48} />
+                </button>
+
+                <button 
+                  onClick={skipToque}
+                  className="p-4 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
+                  title="Pular Toque"
+                >
+                  <FastForward size={28} />
+                </button>
+              </div>
             </div>
-            <span className="text-xs text-gray-400">Próxima Cantiga (Avanço) / Fim do Toque (Fast Forward)</span>
+            <span className="text-xs text-gray-400 mt-2">Próxima Cantiga (Avanço) / Fim do Toque (Fast Forward)</span>
           </div>
         </>
       )}

@@ -24,3 +24,24 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Red Room Mode Overrides */
+html.red {
+  color-scheme: dark;
+}
+html.red body, html.red .bg-white, html.red .dark\:bg-black, html.red .dark\:bg-gray-900, html.red .dark\:bg-gray-800 {
+  background-color: #000000 !important;
+}
+html.red body, html.red .text-black, html.red .dark\:text-white, html.red .dark\:\!text-yellow-400, html.red .dark\:text-yellow-400, html.red .text-gray-500 {
+  color: #ff0000 !important;
+}
+html.red * {
+  border-color: #330000 !important;
+}
+html.red .bg-blue-600 {
+  background-color: #550000 !important;
+  color: #ff0000 !important;
+}
+html.red svg {
+  color: #ff0000 !important;
+}
