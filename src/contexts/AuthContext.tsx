@@ -33,13 +33,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("configuracoes")
-        .select("valor")
-        .eq("chave", "admin_pin")
-        .single();
+      // Verificação SEGURA no servidor, sem vazar a senha real
+      const { data, error } = await supabase.rpc('verificar_pin', { p_pin: savedPin });
 
-      if (!error && data?.valor === savedPin) {
+      if (!error && data === true) {
         setIsAdmin(true);
       } else {
         localStorage.removeItem("ijoba_admin_pin");
@@ -54,13 +51,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function login(pin: string) {
     try {
-      const { data, error } = await supabase
-        .from("configuracoes")
-        .select("valor")
-        .eq("chave", "admin_pin")
-        .single();
+      // Verificação SEGURA no servidor
+      const { data, error } = await supabase.rpc('verificar_pin', { p_pin: pin });
 
-      if (!error && data?.valor === pin) {
+      if (!error && data === true) {
         localStorage.setItem("ijoba_admin_pin", pin);
         setIsAdmin(true);
         return true;
